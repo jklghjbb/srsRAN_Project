@@ -18,11 +18,33 @@
 # and at http://www.gnu.org/licenses/.
 #
 
-add_subdirectory(examples)
-add_subdirectory(cu)
-add_subdirectory(cu_cp)
-add_subdirectory(cu_up)
-add_subdirectory(gnb)
-add_subdirectory(du)
-add_subdirectory(units)
-add_subdirectory(services)
+add_executable(srscu_cp
+    cu_cp.cpp
+	cu_appconfig_cli11_schema.cpp
+	cu_appconfig_validator.cpp
+	cu_appconfig_yaml_writer.cpp
+    ../gnb/gnb_appconfig_translators.cpp
+)
+
+install(TARGETS srscu_cp
+        RUNTIME)
+
+target_link_libraries(srscu_cp
+        srsran_app_services
+        srsran_support
+        srsran_versioning
+        srsran_cu_cp_app_unit
+        srsran_cu_up_app_unit
+        srsran_ngap
+        srsran_f1c_gateway
+        srsran_e1_gateway
+        srsran_e2
+        #srsgnb_app_f1u_cu_up_split_connector
+        srsran_pcap
+        ngap_asn1
+        )
+
+add_backward(srscu_cp)
+
+target_include_directories(srscu_cp PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/external)
+

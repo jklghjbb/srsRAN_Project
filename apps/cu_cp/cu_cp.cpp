@@ -20,13 +20,7 @@
  *
  */
 
-#include "srsran/f1ap/gateways/f1c_network_server_factory.h"
-#include "srsran/f1u/cu_up/split_connector/f1u_split_connector_factory.h"
-#include "srsran/gateways/udp_network_gateway.h"
-#include "srsran/gtpu/gtpu_config.h"
-#include "srsran/gtpu/gtpu_demux_factory.h"
-#include "srsran/gtpu/ngu_gateway.h"
-#include "srsran/pcap/dlt_pcap.h"
+
 #include "srsran/support/backtrace.h"
 #include "srsran/support/config_parsers.h"
 #include "srsran/support/cpu_features.h"
@@ -41,19 +35,13 @@
 #include "srsran/support/versioning/build_info.h"
 #include "srsran/support/versioning/version.h"
 
-#include "apps/cu/cu_appconfig_cli11_schema.h"
+
+// cu_cp config
 #include "apps/units/cu_cp/cu_cp_application_unit.h"
 #include "apps/units/cu_cp/cu_cp_config_translators.h"
 #include "apps/units/cu_cp/cu_cp_unit_config.h"
 #include "apps/units/cu_cp/pcap_factory.h"
-#include "apps/units/cu_up/cu_up_application_unit.h"
-#include "apps/units/cu_up/cu_up_unit_config.h"
-#include "apps/units/cu_up/pcap_factory.h"
-#include "srsran/cu_up/cu_up.h"
 
-// TODO remove apps/gnb/*.h
-#include "apps/cu/adapters/e2_gateways.h"
-#include "apps/gnb/gnb_appconfig_translators.h"
 
 #include "apps/services/application_message_banners.h"
 #include "apps/services/application_tracer.h"
@@ -61,10 +49,19 @@
 #include "apps/services/stdin_command_dispatcher.h"
 #include "apps/services/worker_manager.h"
 #include "apps/services/worker_manager_config.h"
-#include "cu_appconfig.h"
-#include "cu_appconfig_validator.h"
-#include "cu_appconfig_yaml_writer.h"
 
+
+// app config
+#include "apps/gnb/gnb_appconfig_translators.h"
+#include "apps/cu_cp/cu_cp_appconfig_cli11_schema.h"
+#include "cu_cp_appconfig.h"
+#include "cu_cp_appconfig_validator.h"
+#include "cu_cp_appconfig_yaml_writer.h"
+
+// gateway and interface
+#include "apps/cu/adapters/e2_gateways.h"
+#include "srsran/f1ap/gateways/f1c_network_server_factory.h"
+#include "srsran/pcap/dlt_pcap.h"
 #include "srsran/e1ap/gateways/e1_local_connector_factory.h"
 #include "srsran/ngap/gateways/n2_connection_client_factory.h"
 
@@ -74,13 +71,7 @@
 using namespace srsran;
 
 /// \file
-/// \brief Application of a Central Unit (CU) with combined CU control-plane (CU-CP) and CU user-plane (CU-UP).
-///
-/// This application runs a CU without the E1 connection between the CU-CP and CU-UP going over a real SCTP
-/// connection. However, its does expose the F1, N2 and N3 interface to the DU, AMF and UPF over the standard
-/// UDP/SCTP ports.
-///
-/// The app serves as an example for an all-integrated CU.
+/// \brief Application of a Central Unit Control (CU) with combined CU control-plane (CU-CP).
 
 static std::string config_file;
 
@@ -92,7 +83,7 @@ static constexpr unsigned MAX_CONFIG_FILES = 10;
 static void populate_cli11_generic_args(CLI::App& app)
 {
   fmt::memory_buffer buffer;
-  format_to(buffer, "srsRAN 5G CU version {} ({})", get_version(), get_build_hash());
+  format_to(buffer, "srsRAN 5G CU-CP version {} ({})", get_version(), get_build_hash());
   app.set_version_flag("-v,--version", srsran::to_c_str(buffer));
   app.set_config("-c,", config_file, "Read config from file", false)->expected(1, MAX_CONFIG_FILES);
 }
@@ -126,8 +117,7 @@ static void initialize_log(const std::string& filename)
 }
 
 static void register_app_logs(const logger_appconfig& log_cfg,
-                              cu_cp_application_unit& cu_cp_app_unit,
-                              cu_up_application_unit& cu_up_app_unit)
+                              cu_cp_application_unit& cu_cp_app_unit)
 {
   // Set log-level of app and all non-layer specific components to app level.
   for (const auto& id : {"ALL", "SCTP-GW", "IO-EPOLL", "UDP-GW", "PCAP"}) {
@@ -136,7 +126,7 @@ static void register_app_logs(const logger_appconfig& log_cfg,
     logger.set_hex_dump_max_size(log_cfg.hex_max_size);
   }
 
-  auto& app_logger = srslog::fetch_basic_logger("CU", false);
+  auto& app_logger = srslog::fetch_basic_logger("CU-CP", false);
   app_logger.set_level(srslog::basic_levels::info);
   app_services::application_message_banners::log_build_info(app_logger);
   app_logger.set_level(log_cfg.config_level);
@@ -152,7 +142,6 @@ static void register_app_logs(const logger_appconfig& log_cfg,
 
   // Register units logs.
   cu_cp_app_unit.on_loggers_registration();
-  cu_up_app_unit.on_loggers_registration();
 }
 
 static void fill_cu_worker_manager_config(worker_manager_config& config, const cu_appconfig& unit_cfg)
@@ -161,21 +150,12 @@ static void fill_cu_worker_manager_config(worker_manager_config& config, const c
   config.low_prio_sched_config = unit_cfg.expert_execution_cfg.affinities.low_priority_cpu_cfg;
 }
 
-static void autoderive_cu_up_parameters_after_parsing(cu_up_unit_config& cu_up_cfg, const cu_cp_unit_config& cu_cp_cfg)
-{
-  // If no UPF is configured, we set the UPF configuration from the CU-CP AMF configuration.
-  if (cu_up_cfg.upf_cfg.bind_addr == "auto") {
-    cu_up_cfg.upf_cfg.bind_addr = cu_cp_cfg.amf_config.amf.bind_addr;
-  }
-  cu_up_cfg.upf_cfg.no_core = cu_cp_cfg.amf_config.no_core;
-}
-
 int main(int argc, char** argv)
 {
   // Set the application error handler.
   set_error_handler(app_error_report_handler);
 
-  static constexpr std::string_view app_name = "CU";
+  static constexpr std::string_view app_name = "CU-CP";
   app_services::application_message_banners::announce_app_and_version(app_name);
 
   // Set interrupt and cleanup signal handlers.
@@ -186,7 +166,7 @@ int main(int argc, char** argv)
   enable_backtrace();
 
   // Setup and configure config parsing.
-  CLI::App app("srsCU application");
+  CLI::App app("srsCU-CP application");
   app.config_formatter(create_yaml_config_parser());
   app.allow_config_extras(CLI::config_extras_mode::error);
   // Fill the generic application arguments to parse.
@@ -196,18 +176,12 @@ int main(int argc, char** argv)
   cu_appconfig cu_cfg;
   configure_cli11_with_cu_appconfig_schema(app, cu_cfg);
 
-  auto cu_cp_app_unit = create_cu_cp_application_unit("cu");
+  auto cu_cp_app_unit = create_cu_cp_application_unit("cu-cp");
   cu_cp_app_unit->on_parsing_configuration_registration(app);
 
-  auto cu_up_app_unit = create_cu_up_application_unit("cu");
-  cu_up_app_unit->on_parsing_configuration_registration(app);
-
   // Set the callback for the app calling all the autoderivation functions.
-  app.callback([&app, &cu_cp_app_unit, &cu_up_app_unit]() {
+  app.callback([&app, &cu_cp_app_unit]() {
     cu_cp_app_unit->on_configuration_parameters_autoderivation(app);
-
-    autoderive_cu_up_parameters_after_parsing(cu_up_app_unit->get_cu_up_unit_config(),
-                                              cu_cp_app_unit->get_cu_cp_unit_config());
   });
 
   // Parse arguments.
@@ -215,14 +189,13 @@ int main(int argc, char** argv)
 
   // Check the modified configuration.
   if (!validate_cu_appconfig(cu_cfg) ||
-      !cu_cp_app_unit->on_configuration_validation(os_sched_affinity_bitmask::available_cpus()) ||
-      !cu_up_app_unit->on_configuration_validation(os_sched_affinity_bitmask::available_cpus())) {
+      !cu_cp_app_unit->on_configuration_validation(os_sched_affinity_bitmask::available_cpus())) {
     report_error("Invalid configuration detected.\n");
   }
 
   // Set up logging.
   initialize_log(cu_cfg.log_cfg.filename);
-  register_app_logs(cu_cfg.log_cfg, *cu_cp_app_unit, *cu_up_app_unit);
+  register_app_logs(cu_cfg.log_cfg, *cu_cp_app_unit);
 
   // Log input configuration.
   srslog::basic_logger& config_logger = srslog::fetch_basic_logger("CONFIG");
@@ -230,16 +203,15 @@ int main(int argc, char** argv)
     YAML::Node node;
     fill_cu_appconfig_in_yaml_schema(node, cu_cfg);
     cu_cp_app_unit->dump_config(node);
-    cu_up_app_unit->dump_config(node);
     config_logger.debug("Input configuration (all values): \n{}", YAML::Dump(node));
   } else {
     config_logger.info("Input configuration (only non-default values): \n{}", app.config_to_str(false, false));
   }
 
-  srslog::basic_logger&            cu_logger = srslog::fetch_basic_logger("CU");
+  srslog::basic_logger&            cu_cp_logger = srslog::fetch_basic_logger("CU-CP");
   app_services::application_tracer app_tracer;
   if (not cu_cfg.log_cfg.tracing_filename.empty()) {
-    app_tracer.enable_tracer(cu_cfg.log_cfg.tracing_filename, cu_logger);
+    app_tracer.enable_tracer(cu_cfg.log_cfg.tracing_filename, cu_cp_logger);
   }
 
   // configure cgroups
@@ -253,31 +225,30 @@ int main(int argc, char** argv)
 
   // Check and log included CPU features and check support by current CPU
   if (cpu_supports_included_features()) {
-    cu_logger.debug("Required CPU features: {}", get_cpu_feature_info());
+    cu_cp_logger.debug("Required CPU features: {}", get_cpu_feature_info());
   } else {
     // Quit here until we complete selection of the best matching implementation for the current CPU at runtime.
-    cu_logger.error("The CPU does not support the required CPU features that were configured during compile time: {}",
+    cu_cp_logger.error("The CPU does not support the required CPU features that were configured during compile time: {}",
                     get_cpu_feature_info());
     report_error("The CPU does not support the required CPU features that were configured during compile time: {}\n",
                  get_cpu_feature_info());
   }
 
   // Check some common causes of performance issues and print a warning if required.
-  check_cpu_governor(cu_logger);
-  check_drm_kms_polling(cu_logger);
+  check_cpu_governor(cu_cp_logger);
+  check_drm_kms_polling(cu_cp_logger);
 
   // Create worker manager.
   worker_manager_config worker_manager_cfg;
   fill_cu_worker_manager_config(worker_manager_cfg, cu_cfg);
   cu_cp_app_unit->fill_worker_manager_config(worker_manager_cfg);
-  cu_up_app_unit->fill_worker_manager_config(worker_manager_cfg);
   worker_manager workers{worker_manager_cfg};
 
   // Create layer specific PCAPs.
   cu_cp_dlt_pcaps cu_cp_dlt_pcaps =
       create_cu_cp_dlt_pcap(cu_cp_app_unit->get_cu_cp_unit_config().pcap_cfg, *workers.get_executor_getter());
-  cu_up_dlt_pcaps cu_up_dlt_pcaps =
-      create_cu_up_dlt_pcaps(cu_up_app_unit->get_cu_up_unit_config().pcap_cfg, *workers.get_executor_getter());
+  // cu_up_dlt_pcaps cu_up_dlt_pcaps =
+  //     create_cu_up_dlt_pcaps(cu_up_app_unit->get_cu_up_unit_config().pcap_cfg, *workers.get_executor_getter());
 
   // Create IO broker.
   const auto&                low_prio_cpu_mask = cu_cfg.expert_execution_cfg.affinities.low_priority_cpu_cfg.mask;
@@ -293,24 +264,9 @@ int main(int argc, char** argv)
   f1c_cu_sctp_gateway_config f1c_server_cfg({f1c_sctp_cfg, *epoll_broker, *cu_cp_dlt_pcaps.f1ap});
   std::unique_ptr<srs_cu_cp::f1c_connection_server> cu_f1c_gw = srsran::create_f1c_gateway_server(f1c_server_cfg);
 
-  // Create F1-U GW (TODO factory and cleanup).
-  gtpu_demux_creation_request cu_f1u_gtpu_msg   = {};
-  cu_f1u_gtpu_msg.cfg.warn_on_drop              = true;
-  cu_f1u_gtpu_msg.gtpu_pcap                     = cu_up_dlt_pcaps.f1u.get();
-  std::unique_ptr<gtpu_demux> cu_f1u_gtpu_demux = create_gtpu_demux(cu_f1u_gtpu_msg);
-  udp_network_gateway_config  cu_f1u_gw_config  = {};
-  cu_f1u_gw_config.bind_address                 = cu_cfg.nru_cfg.bind_addr;
-  cu_f1u_gw_config.bind_port                    = GTPU_PORT;
-  cu_f1u_gw_config.reuse_addr                   = false;
-  cu_f1u_gw_config.pool_occupancy_threshold     = cu_cfg.nru_cfg.pool_occupancy_threshold;
-  std::unique_ptr<srs_cu_up::ngu_gateway> cu_f1u_gw =
-      srs_cu_up::create_udp_ngu_gateway(cu_f1u_gw_config, *epoll_broker, workers.cu_up_exec_mapper->io_ul_executor());
-  std::unique_ptr<f1u_cu_up_udp_gateway> cu_f1u_conn =
-      srs_cu_up::create_split_f1u_gw({*cu_f1u_gw, *cu_f1u_gtpu_demux, *cu_up_dlt_pcaps.f1u, GTPU_PORT});
-
   // Create E1AP local connector
   std::unique_ptr<e1_local_connector> e1_gw =
-      create_e1_local_connector(e1_local_sctp_connector_config{*cu_up_dlt_pcaps.e1ap, *epoll_broker, 39412});
+      create_e1_local_connector(e1_local_sctp_connector_config{*cu_cp_dlt_pcaps.e1ap, *epoll_broker, 39412});
 
   // Create manager of timers for CU-CP and CU-UP, which will be
   // driven by the system timer slot ticks.
@@ -343,9 +299,9 @@ int main(int argc, char** argv)
   e1_gw->attach_cu_cp(cu_cp_obj.get_e1_handler());
 
   // start CU-CP
-  cu_logger.info("Starting CU-CP...");
+  cu_cp_logger.info("Starting CU-CP...");
   cu_cp_obj.start();
-  cu_logger.info("CU-CP started successfully");
+  cu_cp_logger.info("CU-CP started successfully");
 
   // Check connection to AMF
   if (not cu_cp_obj.get_ng_handler().amfs_are_connected()) {
@@ -355,18 +311,6 @@ int main(int argc, char** argv)
   // Connect F1-C to CU-CP and start listening for new F1-C connection requests.
   cu_f1c_gw->attach_cu_cp(cu_cp_obj.get_f1c_handler());
 
-  // Create and start CU-UP
-  cu_up_unit_dependencies cu_up_unit_deps;
-  cu_up_unit_deps.workers          = &workers;
-  cu_up_unit_deps.e1ap_conn_client = e1_gw.get();
-  cu_up_unit_deps.f1u_gateway      = cu_f1u_conn.get();
-  cu_up_unit_deps.gtpu_pcap        = cu_up_dlt_pcaps.n3.get();
-  cu_up_unit_deps.timers           = cu_timers;
-  cu_up_unit_deps.io_brk           = epoll_broker.get();
-
-  std::unique_ptr<srs_cu_up::cu_up_interface> cu_up_obj = cu_up_app_unit->create_cu_up_unit(cu_up_unit_deps);
-  cu_up_obj->start();
-
   {
     app_services::application_message_banners app_banner(app_name);
 
@@ -375,22 +319,19 @@ int main(int argc, char** argv)
     }
   }
 
-  // Stop CU-UP activity.
-  cu_up_obj->stop();
-
   // Stop CU-CP activity.
   cu_cp_obj.stop();
 
   // Close PCAPs
-  cu_logger.info("Closing PCAP files...");
+  cu_cp_logger.info("Closing PCAP files...");
   cu_cp_dlt_pcaps.close();
-  cu_up_dlt_pcaps.close();
-  cu_logger.info("PCAP files successfully closed.");
+  // cu_up_dlt_pcaps.close();
+  cu_cp_logger.info("PCAP files successfully closed.");
 
   // Stop workers
-  cu_logger.info("Stopping executors...");
+  cu_cp_logger.info("Stopping executors...");
   workers.stop();
-  cu_logger.info("Executors closed successfully.");
+  cu_cp_logger.info("Executors closed successfully.");
 
   srslog::flush();
 
