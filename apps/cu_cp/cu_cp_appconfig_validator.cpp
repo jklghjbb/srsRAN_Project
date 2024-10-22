@@ -20,13 +20,13 @@
  *
  */
 
-#include "cu_appconfig_validator.h"
+#include "cu_cp_appconfig_validator.h"
 #include "apps/services/logger/logger_appconfig_validator.h"
-#include "cu_appconfig.h"
+#include "cu_cp_appconfig.h"
 
 using namespace srsran;
 
-bool srsran::validate_cu_appconfig(const cu_appconfig& config)
+bool srsran::validate_cu_cp_appconfig(const cu_cp_appconfig& config)
 {
   return validate_logger_appconfig(config.log_cfg);
 }

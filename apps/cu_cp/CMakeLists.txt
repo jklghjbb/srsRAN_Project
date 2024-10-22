@@ -20,10 +20,10 @@
 
 add_executable(srscu_cp
     cu_cp.cpp
-	cu_appconfig_cli11_schema.cpp
-	cu_appconfig_validator.cpp
-	cu_appconfig_yaml_writer.cpp
-    ../gnb/gnb_appconfig_translators.cpp
+	cu_cp_appconfig_cli11_schema.cpp
+	cu_cp_appconfig_validator.cpp
+	cu_cp_appconfig_yaml_writer.cpp
+    # ../gnb/gnb_appconfig_translators.cpp
 )
 
 install(TARGETS srscu_cp
@@ -39,7 +39,6 @@ target_link_libraries(srscu_cp
         srsran_f1c_gateway
         srsran_e1_gateway
         srsran_e2
-        #srsgnb_app_f1u_cu_up_split_connector
         srsran_pcap
         ngap_asn1
         )

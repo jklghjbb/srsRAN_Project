@@ -24,9 +24,9 @@
 
 namespace srsran {
 
-struct cu_appconfig;
+struct cu_cp_appconfig;
 
 /// Validates the given CU application configuration. Returns true on success, false otherwise.
-bool validate_cu_appconfig(const cu_appconfig& config);
+bool validate_cu_cp_appconfig(const cu_cp_appconfig& config);
 
 } // namespace srsran

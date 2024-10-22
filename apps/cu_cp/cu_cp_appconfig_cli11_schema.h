@@ -26,9 +26,9 @@
 
 namespace srsran {
 
-struct cu_appconfig;
+struct cu_cp_appconfig;
 
 /// Configures the given CLI11 application with the CU application configuration schema.
-void configure_cli11_with_cu_appconfig_schema(CLI::App& app, cu_appconfig& cu_cfg);
+void configure_cli11_with_cu_cp_appconfig_schema(CLI::App& app, cu_cp_appconfig& cu_cfg);
 
 } // namespace srsran

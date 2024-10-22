@@ -26,9 +26,9 @@
 
 namespace srsran {
 
-struct cu_appconfig;
+struct cu_cp_appconfig;
 
 /// Fills the given node with the CU application configuration values.
-void fill_cu_appconfig_in_yaml_schema(YAML::Node& node, const cu_appconfig& config);
+void fill_cu_cp_appconfig_in_yaml_schema(YAML::Node& node, const cu_cp_appconfig& config);
 
 } // namespace srsran

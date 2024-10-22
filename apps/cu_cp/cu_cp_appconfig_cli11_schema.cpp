@@ -20,10 +20,10 @@
  *
  */
 
-#include "cu_appconfig_cli11_schema.h"
+#include "cu_cp_appconfig_cli11_schema.h"
 #include "apps/services/buffer_pool/buffer_pool_appconfig_cli11_schema.h"
 #include "apps/services/logger/logger_appconfig_cli11_schema.h"
-#include "cu_appconfig.h"
+#include "cu_cp_appconfig.h"
 #include "srsran/support/cli11_utils.h"
 #include "CLI/CLI11.hpp"
 
@@ -52,7 +52,7 @@ static void configure_cli11_nru_args(CLI::App& app, srs_cu::cu_nru_appconfig& nr
   ;
 }
 
-void srsran::configure_cli11_with_cu_appconfig_schema(CLI::App& app, cu_appconfig& cu_cfg)
+void srsran::configure_cli11_with_cu_cp_appconfig_schema(CLI::App& app, cu_cp_appconfig& cu_cfg)
 {
   // Logging section.
   configure_cli11_with_logger_appconfig_schema(app, cu_cfg.log_cfg);

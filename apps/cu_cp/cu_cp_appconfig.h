@@ -47,9 +47,9 @@ struct cu_f1ap_appconfig {
 } // namespace srs_cu
 
 /// Monolithic gnb application configuration.
-struct cu_appconfig {
+struct cu_cp_appconfig { 
   /// Default constructor to update the log filename.
-  cu_appconfig() { log_cfg.filename = "/tmp/cu.log"; }
+  cu_cp_appconfig() { log_cfg.filename = "/tmp/cu.log"; }
 
   /// Loggers configuration.
   logger_appconfig log_cfg;

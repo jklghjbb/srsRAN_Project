@@ -52,7 +52,7 @@
 
 
 // app config
-#include "apps/gnb/gnb_appconfig_translators.h"
+// #include "apps/gnb/gnb_appconfig_translators.h"
 #include "apps/cu_cp/cu_cp_appconfig_cli11_schema.h"
 #include "cu_cp_appconfig.h"
 #include "cu_cp_appconfig_validator.h"
@@ -61,7 +61,6 @@
 // gateway and interface
 #include "apps/cu/adapters/e2_gateways.h"
 #include "srsran/f1ap/gateways/f1c_network_server_factory.h"
-#include "srsran/pcap/dlt_pcap.h"
 #include "srsran/e1ap/gateways/e1_local_connector_factory.h"
 #include "srsran/ngap/gateways/n2_connection_client_factory.h"
 
@@ -120,7 +119,7 @@ static void register_app_logs(const logger_appconfig& log_cfg,
                               cu_cp_application_unit& cu_cp_app_unit)
 {
   // Set log-level of app and all non-layer specific components to app level.
-  for (const auto& id : {"ALL", "SCTP-GW", "IO-EPOLL", "UDP-GW", "PCAP"}) {
+  for (const auto& id : {"ALL", "SCTP-GW", "IO-EPOLL", "PCAP"}) {
     auto& logger = srslog::fetch_basic_logger(id, false);
     logger.set_level(log_cfg.lib_level);
     logger.set_hex_dump_max_size(log_cfg.hex_max_size);
@@ -144,7 +143,7 @@ static void register_app_logs(const logger_appconfig& log_cfg,
   cu_cp_app_unit.on_loggers_registration();
 }
 
-static void fill_cu_worker_manager_config(worker_manager_config& config, const cu_appconfig& unit_cfg)
+static void fill_cu_worker_manager_config(worker_manager_config& config, const cu_cp_appconfig& unit_cfg)
 {
   config.nof_low_prio_threads  = unit_cfg.expert_execution_cfg.threads.non_rt_threads.nof_non_rt_threads;
   config.low_prio_sched_config = unit_cfg.expert_execution_cfg.affinities.low_priority_cpu_cfg;
@@ -173,8 +172,8 @@ int main(int argc, char** argv)
   populate_cli11_generic_args(app);
 
   // Configure CLI11 with the CU application configuration schema.
-  cu_appconfig cu_cfg;
-  configure_cli11_with_cu_appconfig_schema(app, cu_cfg);
+  cu_cp_appconfig cu_cp_cfg;
+  configure_cli11_with_cu_cp_appconfig_schema(app, cu_cp_cfg);
 
   auto cu_cp_app_unit = create_cu_cp_application_unit("cu-cp");
   cu_cp_app_unit->on_parsing_configuration_registration(app);
@@ -188,20 +187,20 @@ int main(int argc, char** argv)
   CLI11_PARSE(app, argc, argv);
 
   // Check the modified configuration.
-  if (!validate_cu_appconfig(cu_cfg) ||
+  if (!validate_cu_cp_appconfig(cu_cp_cfg) ||
       !cu_cp_app_unit->on_configuration_validation(os_sched_affinity_bitmask::available_cpus())) {
     report_error("Invalid configuration detected.\n");
   }
 
   // Set up logging.
-  initialize_log(cu_cfg.log_cfg.filename);
-  register_app_logs(cu_cfg.log_cfg, *cu_cp_app_unit);
+  initialize_log(cu_cp_cfg.log_cfg.filename);
+  register_app_logs(cu_cp_cfg.log_cfg, *cu_cp_app_unit);
 
   // Log input configuration.
   srslog::basic_logger& config_logger = srslog::fetch_basic_logger("CONFIG");
   if (config_logger.debug.enabled()) {
     YAML::Node node;
-    fill_cu_appconfig_in_yaml_schema(node, cu_cfg);
+    fill_cu_cp_appconfig_in_yaml_schema(node, cu_cp_cfg);
     cu_cp_app_unit->dump_config(node);
     config_logger.debug("Input configuration (all values): \n{}", YAML::Dump(node));
   } else {
@@ -210,18 +209,12 @@ int main(int argc, char** argv)
 
   srslog::basic_logger&            cu_cp_logger = srslog::fetch_basic_logger("CU-CP");
   app_services::application_tracer app_tracer;
-  if (not cu_cfg.log_cfg.tracing_filename.empty()) {
-    app_tracer.enable_tracer(cu_cfg.log_cfg.tracing_filename, cu_cp_logger);
+  if (not cu_cp_cfg.log_cfg.tracing_filename.empty()) {
+    app_tracer.enable_tracer(cu_cp_cfg.log_cfg.tracing_filename, cu_cp_logger);
   }
 
-  // configure cgroups
-  // TODO
-
   // Setup size of byte buffer pool.
-  app_services::buffer_pool_manager buffer_pool_service(cu_cfg.buffer_pool_config);
-
-  // Log CPU architecture.
-  // TODO
+  app_services::buffer_pool_manager buffer_pool_service(cu_cp_cfg.buffer_pool_config);
 
   // Check and log included CPU features and check support by current CPU
   if (cpu_supports_included_features()) {
@@ -240,25 +233,23 @@ int main(int argc, char** argv)
 
   // Create worker manager.
   worker_manager_config worker_manager_cfg;
-  fill_cu_worker_manager_config(worker_manager_cfg, cu_cfg);
+  fill_cu_worker_manager_config(worker_manager_cfg, cu_cp_cfg);
   cu_cp_app_unit->fill_worker_manager_config(worker_manager_cfg);
   worker_manager workers{worker_manager_cfg};
 
   // Create layer specific PCAPs.
   cu_cp_dlt_pcaps cu_cp_dlt_pcaps =
       create_cu_cp_dlt_pcap(cu_cp_app_unit->get_cu_cp_unit_config().pcap_cfg, *workers.get_executor_getter());
-  // cu_up_dlt_pcaps cu_up_dlt_pcaps =
-  //     create_cu_up_dlt_pcaps(cu_up_app_unit->get_cu_up_unit_config().pcap_cfg, *workers.get_executor_getter());
 
   // Create IO broker.
-  const auto&                low_prio_cpu_mask = cu_cfg.expert_execution_cfg.affinities.low_priority_cpu_cfg.mask;
+  const auto&                low_prio_cpu_mask = cu_cp_cfg.expert_execution_cfg.affinities.low_priority_cpu_cfg.mask;
   io_broker_config           io_broker_cfg(low_prio_cpu_mask);
   std::unique_ptr<io_broker> epoll_broker = create_io_broker(io_broker_type::epoll, io_broker_cfg);
 
   // Create F1-C GW (TODO cleanup port and PPID args with factory)
   sctp_network_gateway_config f1c_sctp_cfg = {};
   f1c_sctp_cfg.if_name                     = "F1-C";
-  f1c_sctp_cfg.bind_address                = cu_cfg.f1ap_cfg.bind_addr;
+  f1c_sctp_cfg.bind_address                = cu_cp_cfg.f1ap_cfg.bind_addr;
   f1c_sctp_cfg.bind_port                   = F1AP_PORT;
   f1c_sctp_cfg.ppid                        = F1AP_PPID;
   f1c_cu_sctp_gateway_config f1c_server_cfg({f1c_sctp_cfg, *epoll_broker, *cu_cp_dlt_pcaps.f1ap});
@@ -278,7 +269,7 @@ int main(int argc, char** argv)
 
   // Instantiate E2AP client gateway.
   std::unique_ptr<e2_connection_client> e2_gw_cu =
-      create_cu_e2_client_gateway(cu_cfg.e2_cfg, *epoll_broker, *cu_cp_dlt_pcaps.e2ap);
+      create_cu_e2_client_gateway(cu_cp_cfg.e2_cfg, *epoll_broker, *cu_cp_dlt_pcaps.e2ap);
 
   // Create CU-CP config.
   cu_cp_build_dependencies cu_cp_dependencies;
