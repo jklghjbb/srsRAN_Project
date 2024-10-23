@@ -29,7 +29,6 @@
 
 namespace srsran {
 namespace srs_cu {
-
 /// NR-U configuration
 struct cu_nru_appconfig {
   std::string bind_addr       = "127.0.10.1"; // Bind address used by the F1-U interface
@@ -38,18 +37,14 @@ struct cu_nru_appconfig {
   float       pool_occupancy_threshold = 0.9; // Buffer pool occupancy threshold after which packets are dropped.
 };
 
-/// F1AP configuration
-struct cu_f1ap_appconfig {
-  /// F1-C bind address
-  std::string bind_addr = "127.0.10.1";
+struct cu_up_e1ap_appconfig {
+  std::string addr = "127.0.10.1";
+  int         port = 38412;
 };
 
-} // namespace srs_cu
-
-/// Monolithic gnb application configuration.
-struct cu_appconfig {
+struct cu_up_appconfig {
   /// Default constructor to update the log filename.
-  cu_appconfig() { log_cfg.filename = "/tmp/cu.log"; }
+  cu_up_appconfig() { log_cfg.filename = "/tmp/cu.log"; }
 
   /// Loggers configuration.
   logger_appconfig log_cfg;
@@ -59,9 +54,9 @@ struct cu_appconfig {
 
   /// NR-U
   srs_cu::cu_nru_appconfig nru_cfg;
-
-  /// F1AP
-  srs_cu::cu_f1ap_appconfig f1ap_cfg;
+  
+  /// E1 client configuration
+  srs_cu::cu_up_e1ap_appconfig e1_client_cfg;
 
   /// Buffer pool configuration.
   buffer_pool_appconfig buffer_pool_config;
@@ -70,5 +65,7 @@ struct cu_appconfig {
   e2_appconfig e2_cfg;
   /// TODO fill in the rest of the configuration
 };
+
+} // namespace srs_cu
 
 } // namespace srsran

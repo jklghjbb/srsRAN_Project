@@ -20,9 +20,9 @@
 
 add_executable(srscu_up
     cu_up.cpp
-	cu_appconfig_cli11_schema.cpp
-	cu_appconfig_validator.cpp
-	cu_appconfig_yaml_writer.cpp
+	cu_up_appconfig_cli11_schema.cpp
+	cu_up_appconfig_validator.cpp
+	cu_up_appconfig_yaml_writer.cpp
     ../gnb/gnb_appconfig_translators.cpp
 )
 
@@ -33,15 +33,10 @@ target_link_libraries(srscu_up
         srsran_app_services
         srsran_support
         srsran_versioning
-        srsran_cu_cp_app_unit
         srsran_cu_up_app_unit
-        srsran_ngap
-        srsran_f1c_gateway
         srsran_e1_gateway
-        #srsran_e2
         srsgnb_app_f1u_cu_up_split_connector
         srsran_pcap
-        ngap_asn1
         )
 
 add_backward(srscu_up)

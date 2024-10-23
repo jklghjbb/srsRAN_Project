@@ -61,7 +61,7 @@
 // gateway and interface
 #include "apps/cu/adapters/e2_gateways.h"
 #include "srsran/f1ap/gateways/f1c_network_server_factory.h"
-#include "srsran/e1ap/gateways/e1_local_connector_factory.h"
+#include "srsran/e1ap/gateways/e1_network_server_factory.h"
 #include "srsran/ngap/gateways/n2_connection_client_factory.h"
 
 #include <atomic>
@@ -255,9 +255,14 @@ int main(int argc, char** argv)
   f1c_cu_sctp_gateway_config f1c_server_cfg({f1c_sctp_cfg, *epoll_broker, *cu_cp_dlt_pcaps.f1ap});
   std::unique_ptr<srs_cu_cp::f1c_connection_server> cu_f1c_gw = srsran::create_f1c_gateway_server(f1c_server_cfg);
 
-  // Create E1AP local connector
-  std::unique_ptr<e1_local_connector> e1_gw =
-      create_e1_local_connector(e1_local_sctp_connector_config{*cu_cp_dlt_pcaps.e1ap, *epoll_broker, 39412});
+  // Create E1AP server
+  sctp_network_gateway_config sctp;
+  sctp.if_name      = "E1";
+  sctp.ppid         = E1AP_PPID;
+  sctp.bind_address = cu_cp_cfg.e1ap_cfg.bind_addr;
+  // Use any bind port available.
+  sctp.bind_port = cu_cp_cfg.e1ap_cfg.bind_port;
+  auto e1_server = create_e1_gateway_server(e1_cu_cp_sctp_gateway_config{sctp, *epoll_broker, *cu_cp_dlt_pcaps.e1ap});
 
   // Create manager of timers for CU-CP and CU-UP, which will be
   // driven by the system timer slot ticks.
@@ -287,7 +292,7 @@ int main(int argc, char** argv)
   app_services::stdin_command_dispatcher command_parser(*epoll_broker, cu_cp_obj_and_cmds.commands);
 
   // Connect E1AP to CU-CP.
-  e1_gw->attach_cu_cp(cu_cp_obj.get_e1_handler());
+  e1_server->attach_cu_cp(cu_cp_obj.get_e1_handler());
 
   // start CU-CP
   cu_cp_logger.info("Starting CU-CP...");

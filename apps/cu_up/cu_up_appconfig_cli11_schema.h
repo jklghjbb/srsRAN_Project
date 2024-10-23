@@ -20,13 +20,17 @@
  *
  */
 
-#include "cu_appconfig_validator.h"
-#include "apps/services/logger/logger_appconfig_validator.h"
-#include "cu_appconfig.h"
+#pragma once
 
-using namespace srsran;
+#include "CLI/CLI11.hpp"
 
-bool srsran::validate_cu_appconfig(const cu_appconfig& config)
-{
-  return validate_logger_appconfig(config.log_cfg);
-}
+namespace srsran {
+
+namespace srs_cu{
+    struct cu_up_appconfig;
+} // namespace srs_cu
+
+/// Configures the given CLI11 application with the CU application configuration schema.
+void configure_cli11_with_cu_appconfig_schema(CLI::App& app, srs_cu::cu_up_appconfig& cu_cfg);
+
+} // namespace srsran

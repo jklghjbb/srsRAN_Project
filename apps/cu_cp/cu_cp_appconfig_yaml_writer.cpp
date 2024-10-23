@@ -32,20 +32,11 @@ static void fill_cu_cp_appconfig_buffer_pool_section(YAML::Node node, const buff
   node["segment_size"] = config.segment_size;
 }
 
-static void fill_cu_cp_appconfig_f1ap_section(YAML::Node node, const srs_cu::cu_f1ap_appconfig& config)
+static void fill_cu_cp_appconfig_f1ap_section(YAML::Node node, const srs_cu_cp::cu_f1ap_appconfig& config)
 {
   YAML::Node cu_cp_node     = node["cu_cp"];
   YAML::Node f1ap_node      = cu_cp_node["f1ap"];
   f1ap_node["bind_address"] = config.bind_addr;
-}
-
-static void fill_cu_cp_appconfig_nru_section(YAML::Node node, const srs_cu::cu_nru_appconfig& config)
-{
-  YAML::Node cu_up_node       = node["cu_up"];
-  YAML::Node nru_node         = cu_up_node["nru"];
-  nru_node["udp_max_rx_msgs"] = config.udp_rx_max_msgs;
-  nru_node["bind_addr"]       = config.bind_addr;
-  nru_node["ext_addr"]        = config.ext_addr;
 }
 
 void srsran::fill_cu_cp_appconfig_in_yaml_schema(YAML::Node& node, const cu_cp_appconfig& config)
@@ -53,5 +44,4 @@ void srsran::fill_cu_cp_appconfig_in_yaml_schema(YAML::Node& node, const cu_cp_a
   fill_logger_appconfig_in_yaml_schema(node, config.log_cfg);
   fill_cu_cp_appconfig_buffer_pool_section(node["buffer_pool"], config.buffer_pool_config);
   fill_cu_cp_appconfig_f1ap_section(node, config.f1ap_cfg);
-  fill_cu_cp_appconfig_nru_section(node, config.nru_cfg);
 }

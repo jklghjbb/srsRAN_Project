@@ -22,13 +22,13 @@
 
 #pragma once
 
-#include <yaml-cpp/yaml.h>
-
 namespace srsran {
 
-struct cu_appconfig;
+namespace srs_cu{
+    struct cu_up_appconfig;
+} // namespace srs_cu
 
-/// Fills the given node with the CU application configuration values.
-void fill_cu_appconfig_in_yaml_schema(YAML::Node& node, const cu_appconfig& config);
+/// Validates the given CU application configuration. Returns true on success, false otherwise.
+bool validate_cu_appconfig(const srs_cu::cu_up_appconfig& config);
 
 } // namespace srsran

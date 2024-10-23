@@ -29,27 +29,15 @@
 
 using namespace srsran;
 
-static void configure_cli11_f1ap_args(CLI::App& app, srs_cu::cu_f1ap_appconfig& f1ap_params)
+static void configure_cli11_f1ap_args(CLI::App& app, srs_cu_cp::cu_f1ap_appconfig& f1ap_params)
 {
   add_option(app, "--bind_addr", f1ap_params.bind_addr, "F1-C bind address")->capture_default_str();
 }
 
-static void configure_cli11_nru_args(CLI::App& app, srs_cu::cu_nru_appconfig& nru_cfg)
+static void configure_cli11_e1ap_args(CLI::App& app, srs_cu_cp::cu_e1ap_appconfig& e1ap_params)
 {
-  add_option(app,
-             "--bind_addr",
-             nru_cfg.bind_addr,
-             "Default local IP address interfaces bind to, unless a specific bind address is specified")
-      ->check(CLI::ValidIPV4);
-  app.add_option(
-      "--ext_addr", nru_cfg.ext_addr, "External IP address that is advertised to receive F1-U packets from the DU");
-  add_option(app, "--udp_max_rx_msgs", nru_cfg.udp_rx_max_msgs, "Maximum amount of messages RX in a single syscall");
-  add_option(app,
-             "--pool_threshold",
-             nru_cfg.pool_occupancy_threshold,
-             "Pool occupancy threshold after which packets are dropped")
-      ->check(CLI::Range(0.0, 1.0));
-  ;
+  add_option(app, "--bind_addr", e1ap_params.bind_addr, "e1ap bind address")->capture_default_str();
+  add_option(app, "--bind_port", e1ap_params.bind_port, "e1ap bind port")->capture_default_str();
 }
 
 void srsran::configure_cli11_with_cu_cp_appconfig_schema(CLI::App& app, cu_cp_appconfig& cu_cfg)
@@ -63,10 +51,7 @@ void srsran::configure_cli11_with_cu_cp_appconfig_schema(CLI::App& app, cu_cp_ap
   // F1AP section.
   CLI::App* cu_cp_subcmd = add_subcommand(app, "cu_cp", "CU-UP parameters")->configurable();
   CLI::App* f1ap_subcmd  = add_subcommand(*cu_cp_subcmd, "f1ap", "F1AP parameters")->configurable();
+  CLI::App* e1ap_subcmd = add_subcommand(*cu_cp_subcmd, "e1ap", "E1AP parameters")->configurable();
   configure_cli11_f1ap_args(*f1ap_subcmd, cu_cfg.f1ap_cfg);
-
-  // NR-U section.
-  CLI::App* cu_up_subcmd = add_subcommand(app, "cu_up", "CU-UP parameters")->configurable();
-  CLI::App* nru_subcmd   = add_subcommand(*cu_up_subcmd, "nru", "NR-U parameters")->configurable();
-  configure_cli11_nru_args(*nru_subcmd, cu_cfg.nru_cfg);
+  configure_cli11_e1ap_args(*e1ap_subcmd, cu_cfg.e1ap_cfg);
 }

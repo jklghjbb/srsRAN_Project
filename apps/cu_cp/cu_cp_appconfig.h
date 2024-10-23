@@ -28,15 +28,7 @@
 #include <string>
 
 namespace srsran {
-namespace srs_cu {
-
-/// NR-U configuration
-struct cu_nru_appconfig {
-  std::string bind_addr       = "127.0.10.1"; // Bind address used by the F1-U interface
-  std::string ext_addr        = "auto";       // External address advertised by the F1-U interface
-  int         udp_rx_max_msgs = 256; // Max number of UDP packets received by a single syscall on the F1-U interface.
-  float       pool_occupancy_threshold = 0.9; // Buffer pool occupancy threshold after which packets are dropped.
-};
+namespace srs_cu_cp {
 
 /// F1AP configuration
 struct cu_f1ap_appconfig {
@@ -44,6 +36,10 @@ struct cu_f1ap_appconfig {
   std::string bind_addr = "127.0.10.1";
 };
 
+struct cu_e1ap_appconfig {
+  std::string bind_addr = "127.0.10.1";
+  int bind_port = 39412;
+};
 } // namespace srs_cu
 
 /// Monolithic gnb application configuration.
@@ -57,11 +53,11 @@ struct cu_cp_appconfig {
   /// Expert configuration.
   expert_execution_appconfig expert_execution_cfg;
 
-  /// NR-U
-  srs_cu::cu_nru_appconfig nru_cfg;
-
   /// F1AP
-  srs_cu::cu_f1ap_appconfig f1ap_cfg;
+  srs_cu_cp::cu_f1ap_appconfig f1ap_cfg;
+
+  /// E1AP
+  srs_cu_cp::cu_e1ap_appconfig e1ap_cfg;
 
   /// Buffer pool configuration.
   buffer_pool_appconfig buffer_pool_config;
