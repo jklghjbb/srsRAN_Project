@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    k8s.v1.cni.cncf.io/networks: default/midhaul-bridge-net
+spec:
+  containers:
+  - name: devpod
+    securityContext:
+          privileged: true
+          capabilities:
+            add:
+            - NET_ADMIN
+            - BPF
+    volumeMounts:
+    - mountPath: /sys/fs/bpf
+      name: bpf-mount
+  volumes:
+  - name: bpf-mount
+    hostPath:
+      path: /sys/fs/bpf
