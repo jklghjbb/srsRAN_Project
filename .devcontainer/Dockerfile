@@ -13,34 +13,46 @@ LABEL org.opencontainers.image.authors="Álvaro Vázquez <avrodriguez@gradiant.o
       org.opencontainers.image.licenses="Apache-2.0" \
       org.opencontainers.image.version="$version"
 
-RUN apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y  \
-    software-properties-common \
-    git \
-    build-essential \
-    cmake \
-    make \
-    gcc \
-    g++ \
-    pkg-config \
-    libfftw3-dev \
-    libmbedtls-dev \
-    libsctp-dev \
-    libyaml-cpp-dev \
-    libgtest-dev \
-    libzmq3-dev \
-    libboost-program-options-dev \
-    libconfig++-dev \
-    libuhd-dev \
-    uhd-host \
-    gettext-base \
-    iproute2 \
-    dnsutils \
-    net-tools \
-    curl \
-    iptables \
-    iputils-ping \
-    traceroute
+      RUN apt-get update && \
+      DEBIAN_FRONTEND=noninteractive apt-get install -y  \
+      software-properties-common \
+      git \
+      build-essential \
+      cmake \
+      make \
+      gcc \
+      g++ \
+      pkg-config \
+      libfftw3-dev \
+      libmbedtls-dev \
+      libsctp-dev \
+      libyaml-cpp-dev \
+      libgtest-dev \
+      libzmq3-dev \
+      libboost-program-options-dev \
+      libconfig++-dev \
+      libuhd-dev \
+      uhd-host \
+      gettext-base \
+      iproute2 \
+      dnsutils \
+      net-tools \
+      curl \
+      iptables \
+      iputils-ping \
+      traceroute \
+      clang \
+      llvm \
+      libelf-dev \
+      libpcap-dev \
+      build-essential \
+      libc6-dev-i386 \
+      linux-tools-$(uname -r) \
+      linux-headers-$(uname -r) \
+      tcpdump \
+      linux-tools-common \
+      linux-tools-generic \
+      m4
 
 # RUN	cd /opt && git clone https://github.com/jklghjbb/srsRAN_Project.git
 	# cd srsRAN_Project && git checkout $VERSION && \
