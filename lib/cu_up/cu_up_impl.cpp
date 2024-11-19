@@ -29,6 +29,9 @@
 #include "srsran/gtpu/gtpu_teid_pool_factory.h"
 #include <future>
 
+#include <bpf/libbpf.h>
+#include <xdp/libxdp.h>
+
 using namespace srsran;
 using namespace srs_cu_up;
 
@@ -119,8 +122,52 @@ cu_up::~cu_up()
 void cu_up::start()
 {
   logger.info("CU-UP starting...");
+  
+  // ebpf logic
+  // TODO: move to "xdp-loader" and read from/to config
+  std::string filename_str = "xdp_cu_up";
+  std::string progname_str = "xdp_prog_simple";
+  int ul_ifindex = 2;
+  // int dl_ifindex = 3;
+  char errmsg[1024];
+  int err;
 
   std::unique_lock<std::mutex> lock(mutex);
+
+  // loading xdp program
+  logger.info("Loading xdp module...");
+  DECLARE_LIBBPF_OPTS(bpf_object_open_opts, bpf_opts);
+  struct bpf_object *obj;
+  obj = bpf_object__open_file(filename_str.c_str(), &bpf_opts);
+  err = libbpf_get_error(obj);
+  if (err) {
+          libxdp_strerror(err, errmsg, sizeof(errmsg));
+          logger.error("Couldn't open BPF object file %s: %s\n",
+                  filename_str.c_str(), errmsg);
+  }
+	DECLARE_LIBXDP_OPTS(xdp_program_opts, xdp_opts,
+                            .obj = obj,
+                            .prog_name = progname_str.c_str());
+	struct xdp_program *prog = xdp_program__create(&xdp_opts);
+  err = libxdp_get_error(prog);
+	if (err) {
+		libxdp_strerror(err, errmsg, sizeof(errmsg));
+		logger.error("ERR: loading program %s: %s\n", progname_str.c_str(), errmsg);
+	}
+
+  	err = xdp_program__attach(prog, ul_ifindex, XDP_MODE_UNSPEC, 0);
+	if (err) {
+		perror("xdp_program__attach");
+		return;
+	}
+
+	logger.info("Success: Loaded BPF-object(%s) and used program(%s)\n",
+		       filename_str, progname_str);
+	logger.info(" - XDP prog id:%d attached on device:(ifindex:%d)\n",
+		       xdp_program__id(prog), ul_ifindex);
+
+
+  // normal logic
   if (std::exchange(running, true)) {
     logger.warning("CU-UP already started. Ignoring start request");
     return;

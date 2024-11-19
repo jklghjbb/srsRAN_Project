@@ -41,4 +41,32 @@ target_link_libraries(srsran_cu_up
         srsran_sdap
         srsran_security
         srsran_support
-        srslog)
+        srslog
+        bpf
+        ${CMAKE_SOURCE_DIR}/xdp-tools/lib/libxdp/libxdp.so)
+
+add_custom_target(cu_up_xdp.o ALL
+                  DEPENDS ${CMAKE_SOURCE_DIR}/build/apps/cu_up/xdp_cu_up.o)
+
+add_custom_command(OUTPUT ${CMAKE_SOURCE_DIR}/build/apps/cu_up/xdp_cu_up.o
+                   DEPENDS ${CMAKE_SOURCE_DIR}/build/apps/cu_up/xdp_cu_up.ll
+                   COMMAND llc -march=bpf -filetype=obj -o ${CMAKE_SOURCE_DIR}/build/apps/cu_up/xdp_cu_up.o ${CMAKE_SOURCE_DIR}/build/apps/cu_up/xdp_cu_up.ll)
+
+add_custom_command(OUTPUT ${CMAKE_SOURCE_DIR}/build/lib/cu_up/xdp_cu_up.ll
+                  DEPENDS ${CMAKE_SOURCE_DIR}/lib/cu_up/xdp/xdp_cu_up.c
+                  COMMAND clang -S 
+                          -target bpf
+                          -D __BPF_TRACING__
+                          -Wall
+                          -Wno-unused-value
+                          -Wno-pointer-sign
+                          -Wno-compare-distinct-pointer-types
+                          -Werror 
+                          -O2
+                          -emit-llvm
+                          -c
+                          -g
+                          -o ${CMAKE_SOURCE_DIR}/build/apps/cu_up/xdp_cu_up.ll
+                          ${CMAKE_SOURCE_DIR}/lib/cu_up/xdp/xdp_cu_up.c)
+
+add_dependencies(srsran_cu_up cu_up_xdp.o)
